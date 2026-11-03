@@ -144,6 +144,30 @@ missing_rows["relevant_experience"].value_counts()   # No: 3,357, Yes: 2,581
 - Without experience the values are missing three times as often, but this group is much smaller (5,366 vs. 13,792), so in absolute numbers both end up close together.
 - "No current employer" explains only part of the gaps. We can't fill them with a fixed rule like "no relevant experience means no company", "Unknown" plus the missing indicator stays the safer choice.
 
+### How to handle the missing values
+
+There are at least two reasons behind the gaps, and the data can't tell them apart:
+
+- **No employer:** there is no company to describe, the field is really "empty".
+- **Not filled in:** there is a company, but the student skipped the field.
+
+| Method | Fits here? | Why |
+|---|---|---|
+| Drop rows | ❌ | about 30 % of the data lost, mostly students without experience, the sample gets skewed |
+| Mode imputation | ❌ | students without a job get a company they don't have |
+| Fixed rule ("no experience means no company") | ❌ | almost half of the gaps come from students with experience |
+| Own category "Unknown" | ✅ | simple, honest, keeps the information "something is missing" |
+| Keep the `_missing` indicator | ✅ | a model can learn by itself if "missing" predicts job_change |
+| Predict from other columns (e.g. KNN) | ⚠️ | a lot of effort, and without an employer there is no real value to estimate |
+
+Decision: "Unknown" category + `_missing` indicator. The two columns are mostly missing together (only 1,358 rows / 7.1 % have just one missing), which also fits the "no employer" reason.
+
+To watch out for:
+
+- Both columns are `category`, so "Unknown" has to be added as a category before `fillna` works (`.cat.add_categories()`).
+- company_size is ordered, "Unknown" has no sensible place in that order.
+- Check afterwards that `.isna().sum()` is 0.
+
 ## Takeaways for the presentation
 
 1. Types fixed, memory down by 96 %, no values lost.
@@ -153,3 +177,4 @@ missing_rows["relevant_experience"].value_counts()   # No: 3,357, Yes: 2,581
 5. The big problem is still completeness: 8 of 14 columns have missing values.
 6. Missing company information depends on relevant experience (p < 0.001), so it is not random and we don't fill it with the mode.
 7. Still, about 43–49 % of the rows with missing company information do have relevant experience, so "no employer" doesn't explain all of the gaps.
+8. Plan for the company columns: fill the gaps with an own category "Unknown" and keep the `_missing` indicator as a feature.
