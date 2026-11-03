@@ -126,6 +126,24 @@ df.groupby("relevant_experience")["company_size_missing"].mean() * 100   # 62.6 
 
 Consequence: no mode imputation. Filling the gaps with the most common value ("Pvt Ltd", "50-99") would give students without a job a company they don't have. Better: a separate category like "Unknown" and keeping the missing indicator as a feature.
 
+### Who is behind the missing values?
+
+The other way around: if company information is missing, what does relevant_experience say?
+
+| Missing | No relevant experience | Relevant experience | Total |
+|---|---|---|---|
+| company_size | 3,357 (56.5 %) | 2,581 (43.5 %) | 5,938 |
+| company_type | 3,163 (51.5 %) | 2,977 (48.5 %) | 6,140 |
+
+```python
+missing_rows = df[df["company_size"].isna()]
+missing_rows["relevant_experience"].value_counts()   # No: 3,357, Yes: 2,581
+```
+
+- Not all missing company values belong to students without relevant experience, both groups are almost equally large.
+- Without experience the values are missing three times as often, but this group is much smaller (5,366 vs. 13,792), so in absolute numbers both end up close together.
+- "No current employer" explains only part of the gaps. We can't fill them with a fixed rule like "no relevant experience means no company", "Unknown" plus the missing indicator stays the safer choice.
+
 ## Takeaways for the presentation
 
 1. Types fixed, memory down by 96 %, no values lost.
@@ -134,3 +152,4 @@ Consequence: no mode imputation. Filling the gaps with the most common value ("P
 4. Outliers and duplicates are plausible, so we keep them.
 5. The big problem is still completeness: 8 of 14 columns have missing values.
 6. Missing company information depends on relevant experience (p < 0.001), so it is not random and we don't fill it with the mode.
+7. Still, about 43–49 % of the rows with missing company information do have relevant experience, so "no employer" doesn't explain all of the gaps.
