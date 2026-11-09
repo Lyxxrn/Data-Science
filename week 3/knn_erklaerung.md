@@ -148,7 +148,7 @@ Zwei Personen unterscheiden sich beim Index um 0,3 (viel) und bei den Trainingss
 √(0,3² + 10²) = √(0,09 + 100) ≈ 10,004
 ```
 
-Der Index ist fast egal, nur weil seine Zahlen klein sind. Deshalb skalieren wir mit dem **StandardScaler**:
+Der Index ist fast egal, nur weil seine Zahlen klein sind. Deshalb skalieren wir die Zahlenspalten und die Rangzahlen mit dem **StandardScaler**:
 
 ```text
 neuer Wert = (Wert − Mittelwert) / Standardabweichung
@@ -161,7 +161,7 @@ Beispiel mit echten Werten aus dem Datensatz:
 | Trainingsstunden | 90 | 65,3 | 60,0 | (90 − 65,3) / 60,0 ≈ **0,41** |
 | Index | 0,62 | 0,83 | 0,123 | (0,62 − 0,83) / 0,123 ≈ **−1,7** |
 
-Jetzt sind beide Spalten vergleichbar: 0 ist der Durchschnitt, und −1,7 heißt „1,7 typische Abstände unter dem Durchschnitt“. Der Effekt ist groß: Ohne Skalierung hatten wir einen AUC von 0,653, mit Skalierung 0,775.
+Jetzt sind beide Spalten vergleichbar: 0 ist der Durchschnitt, und −1,7 heißt „1,7 typische Abstände unter dem Durchschnitt“.
 
 ### Problem 2: Text kann man nicht subtrahieren
 
@@ -302,7 +302,19 @@ Das Ergebnis bei k = 6 sind 76,6 % Accuracy.
 
 ---
 
-## Schritt 7: Cross-Validation (Folien 31 bis 36)
+## Schritt 7: Das beste k finden (Folien 21 bis 23, 31 bis 36)
+
+`k` ist die wichtigste Einstellung von kNN. Um das beste k zu finden, brauchen wir für jedes k eine verlässliche Note. **Dafür nutzen wir die Cross-Validation.** Sie wählt k nicht selbst aus, sie liefert nur die Noten.
+
+Warum messen wir nicht einfacher?
+
+| Messen auf ... | Problem |
+|---|---|
+| Trainingsdaten | Das Modell kennt die Personen schon. k = 1 sähe mit einem AUC von 0,998 perfekt aus |
+| Testset | Wir würden k passend zur Abschlussprüfung aussuchen, und sie wäre nicht mehr unabhängig |
+| einem einzelnen Holdout-Split | Das Ergebnis hängt davon ab, wer zufällig im Prüfteil gelandet ist |
+
+### Wie die Cross-Validation funktioniert
 
 Ein einzelner Split ist wie eine einzige Klausur: Man kann Glück oder Pech mit den Fragen haben. Bei der **5-fachen Cross-Validation** gibt es deshalb fünf Prüfungen.
 
@@ -326,19 +338,6 @@ cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
 auc = cross_validate(model, X_train, y_train, cv=cv, scoring="roc_auc")
 ```
 
-Damit prüfen wir auch unsere Vorbereitung. Getestet werden alle vier Kombinationen, hier die Werte für k = 151:
-
-| | `StandardScaler` | `MinMaxScaler` |
-|---|---|---|
-| gemischt | 0,786 | 0,766 |
-| überall one-hot | 0,785 | 0,760 |
-
-Der große Unterschied entsteht zwischen den **Spalten**, also durch den Skalierer. Zwischen den **Zeilen** ist er winzig, also beim Encoding. Wir nehmen das gemischte Encoding mit `StandardScaler`: Es ist nicht schlechter und lässt sich inhaltlich begründen.
-
----
-
-## Schritt 8: Das richtige k (Folien 21 bis 23)
-
 ### Warum sind sehr kleine k schlecht?
 
 kNN schätzt einen Anteil: „Wie viele Personen wie diese wechseln?“ Mit wenigen Nachbarn ist das wie eine Umfrage unter fünf Leuten, das Ergebnis schwankt stark. Die Schwankung lässt sich ausrechnen, bei einem wahren Anteil von 25 %:
@@ -361,6 +360,8 @@ k = 101:  √(0,25 · 0,75 / 101)  ≈ 0,043   also ±4,3 Prozentpunkte
 
 Die blaue Linie zeigt die Leistung auf bekannten Daten, die rote auf unbekannten. Nur die rote zählt. Ein großer Abstand zwischen beiden bedeutet Auswendiglernen.
 
+Die Validierungsspalte ist die Note aus der Cross-Validation:
+
 | k | AUC Training | AUC Validierung | Abstand |
 |---|---|---|---|
 | 1 | 0,998 | 0,623 | 0,375 |
@@ -369,11 +370,11 @@ Die blaue Linie zeigt die Leistung auf bekannten Daten, die rote auf unbekannten
 
 Ab etwa k = 75 ändert sich kaum noch etwas.
 
-**8b** rechnet dieselbe Idee mit einer einfachen Schleife wie bei DataCamp nach. Dort liegt das Maximum bei k = 21, das übernehmen wir aber nicht: Es beruht auf nur einem Split und die Kurve ist dort praktisch flach.
+**7b** rechnet dieselbe Idee mit einer einfachen Schleife wie bei DataCamp nach. Dort liegt das Maximum bei k = 21, das übernehmen wir aber nicht: Es beruht auf nur einem Split und die Kurve ist dort praktisch flach.
 
 ---
 
-## Schritt 9: Die beste Einstellung suchen (baut auf den Folien 31 bis 36 auf)
+## Schritt 8: Die beste Einstellung suchen (baut auf den Folien 31 bis 36 auf)
 
 `GridSearchCV` probiert alle Kombinationen automatisch aus:
 
@@ -391,11 +392,11 @@ param_grid = {
 
 Das sind 9 · 2 · 2 = 36 Kombinationen, jede in 5 Folds, also 180 Trainingsläufe. Warum nur ungerade k? So kann es bei zwei Klassen kein Unentschieden geben.
 
-**Ergebnis:** k = 101, `uniform`, `p = 1`, AUC 0,788 ± 0,009.
+**Ergebnis:** k = 101, `uniform`, `p = 1`, AUC 0,788 ± 0,009. Das ist auch unsere Validierung: Der Wert sagt, wie gut das Modell voraussichtlich bei neuen Personen ist und wie stark das Ergebnis schwankt.
 
 Die besten Kombinationen liegen extrem nah beieinander. Die genaue Wahl ist also nicht kritisch.
 
-### 9b: Hilft jedes Feature?
+### 8b: Hilft jedes Feature?
 
 Wir lassen jedes Feature einmal weg und schauen, was mit dem AUC passiert. Sinkt er, hat das Feature geholfen.
 
@@ -410,7 +411,7 @@ Ohne den Index fällt der AUC von 0,788 auf etwa 0,716, er ist also mit Abstand 
 
 ---
 
-## Schritt 10: Die Schwelle aus Kosten (Folien 58 bis 62, 70, 71)
+## Schritt 9: Die beste Schwelle aus Kosten (Folien 58 bis 62, 70, 71)
 
 Das Modell liefert keinen festen Wert „Wechsel“, sondern einen Anteil. Die **Schwelle** legt fest, ab wann jemand als „Wechsel“ gilt:
 
@@ -458,7 +459,7 @@ Dann probiert der Code alle Schwellen von 0,02 bis 0,98 aus, berechnet jeweils d
 
 ---
 
-## Schritt 11: Die Abschlussprüfung (Folien 42 bis 52, 63 bis 69)
+## Schritt 10: Die Abschlussprüfung (Folien 42 bis 52, 63 bis 69)
 
 Jetzt ist alles festgelegt, und das Testset wird genau einmal benutzt.
 
@@ -504,7 +505,7 @@ Der AUC von 0,799 bedeutet: In knapp 80 % der Paare aus einer wechselnden und ei
 
 ---
 
-## Schritt 12: Was herausgekommen ist
+## Schritt 11: Was herausgekommen ist
 
 Das endgültige Modell nutzt alle 10 Features, gemischtes Encoding, `StandardScaler`, kNN mit k = 101, `uniform`, Manhattan-Distanz und die Schwelle 0,32.
 
@@ -522,10 +523,10 @@ Die wichtigsten Punkte:
 | Punkt der Folie | Wo im Notebook | Stand |
 |---|---|---|
 | 1. Prediction task | Schritt 1 | für kNN erledigt, „Moment“ noch genauer festlegen |
-| 2. Two models | Schritte 4 bis 9 | **nur kNN, logistische Regression fehlt** |
-| 3. Validation | 6b und 7 | für kNN erledigt |
-| 4. Evaluation | Schritt 11 | für kNN erledigt |
-| 5. Decision | Schritte 10 und 11 | für kNN erledigt |
+| 2. Two models | Schritte 4 bis 8 | **nur kNN, logistische Regression fehlt** |
+| 3. Validation | 6b, 7 und 8 | für kNN erledigt |
+| 4. Evaluation | Schritt 10 | für kNN erledigt |
+| 5. Decision | Schritte 9 und 10 | für kNN erledigt |
 
 ---
 
